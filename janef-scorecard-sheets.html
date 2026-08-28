@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JANEF Paryushan Scorecard</title>
+<title>JANEF Paryushan Scorecard — Jain Association of North East Florida</title>
 <style>
   :root{
     --maroon:#7a2e2e;
@@ -32,6 +32,12 @@
   header .kicker{letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--gold);font-weight:700;}
   header h1{font-size:24px;margin:6px 0 4px;color:var(--maroon-dark);font-weight:700;}
   header p{margin:0;color:var(--ink-soft);font-size:13px;}
+  .brandbar{display:flex;align-items:center;justify-content:center;gap:14px;background:linear-gradient(135deg,var(--maroon),var(--maroon-dark));border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;box-shadow:0 4px 16px rgba(90,30,30,0.18);}
+  .brand-icon{font-size:34px;line-height:1;flex:0 0 auto;}
+  .brand-org{font-size:22px;font-weight:800;letter-spacing:.06em;color:#fff;line-height:1.1;}
+  .brand-sub{font-size:12px;color:#f3e0c8;font-weight:600;margin-top:2px;}
+  .brand-title{text-align:center;font-size:26px;font-weight:800;color:var(--maroon-dark);margin:4px 0 2px;letter-spacing:.01em;}
+  .brand-subtitle{text-align:center;color:var(--ink-soft);font-size:13px;margin:0 0 20px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 2px 10px rgba(90,50,20,0.06);}
   .card h2{font-size:15px;margin:0 0 14px;color:var(--maroon-dark);display:flex;align-items:center;gap:8px;}
   .card h2 .badge{background:var(--gold);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
@@ -139,9 +145,9 @@ function emptyDay(){
 function loadState(){
   return {
     screen: 'login', // login | register | app
-    name: '', pin: '', parentName: '', loginError: '',
+    name: '', pin: '', parentName: '', isMinor: false, hasGuardianPin: false, loginError: '',
     userList: [], userListLoaded: false, userListLoading: false,
-    regName: '', regParentName: '', regParentPin: '', regPin: '', regError: '',
+    regName: '', regAge: '', regParentName: '', regParentPin: '', regPin: '', regError: '',
     activeDay: 1,
     days: {},
     parentPinInput: '', approveError: '',
@@ -246,11 +252,11 @@ async function ensureUserListLoaded(){
   render();
 }
 
-async function apiRegister(name, pin, parentName, parentPin){
+async function apiRegister(name, pin, age, parentName, parentPin){
   const res = await fetch(CONFIG.WEB_APP_URL, {
     method: 'POST',
     headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify({action:'register', name: name, pin: pin, parentName: parentName, parentPin: parentPin})
+    body: JSON.stringify({action:'register', name: name, pin: pin, age: age, parentName: parentName, parentPin: parentPin})
   });
   return res.json();
 }
@@ -283,6 +289,8 @@ async function tryLogin(name, pin){
     state.name = name.trim();
     state.pin = pin.trim();
     state.parentName = result.parentName || '';
+    state.isMinor = !!result.isMinor;
+    state.hasGuardianPin = !!result.hasGuardianPin;
     state.days = {};
     Object.keys(result.days || {}).forEach(d=>{ state.days[d] = rowFromSheet(result.days[d]); });
     state.screen = 'app';
@@ -294,10 +302,16 @@ async function tryLogin(name, pin){
   render();
 }
 
-async function completeRegistration(name, pin, parentName, parentPin){
+async function completeRegistration(name, pin, age, parentName, parentPin){
   state.regError = '';
-  if(!name.trim() || !pin.trim() || !parentName.trim() || !parentPin.trim()){
-    state.regError = 'Please fill in the child\u2019s name & PIN and the parent/guardian name & PIN.';
+  const ageNum = Number(age);
+  if(!name.trim() || !pin.trim() || !age || isNaN(ageNum) || ageNum <= 0){
+    state.regError = 'Please fill in the Shravak/Shravika name, age, and PIN.';
+    render(); return;
+  }
+  const isMinor = ageNum < 18;
+  if(isMinor && (!parentName.trim() || !parentPin.trim())){
+    state.regError = 'A parent/guardian name and PIN are required for participants under 18.';
     render(); return;
   }
   if(!backendConfigured()){
@@ -310,7 +324,7 @@ async function completeRegistration(name, pin, parentName, parentPin){
   }
   state.loading = true; render();
   try{
-    const result = await apiRegister(name.trim(), pin.trim(), parentName.trim(), parentPin.trim());
+    const result = await apiRegister(name.trim(), pin.trim(), ageNum, parentName.trim(), parentPin.trim());
     if(result.error){
       state.regError = 'Could not register: ' + result.error;
       state.loading = false; render(); return;
@@ -318,6 +332,8 @@ async function completeRegistration(name, pin, parentName, parentPin){
     state.name = name.trim();
     state.pin = pin.trim();
     state.parentName = parentName.trim();
+    state.isMinor = isMinor;
+    state.hasGuardianPin = !!parentPin.trim();
     state.userList = [...state.userList, name.trim()];
     state.days = {};
     state.screen = 'app';
@@ -344,8 +360,8 @@ async function saveCurrentDay(){
   const d = state.activeDay;
   const day = getDay(d);
   state.approveError = '';
-  if(!state.parentPinInput.trim()){
-    state.approveError = 'A parent/guardian PIN is needed to approve and save this day.';
+  if(state.isMinor && !state.parentPinInput.trim()){
+    state.approveError = 'A parent/guardian PIN is required to approve and save this day.';
     render(); return;
   }
   state.saving = true; render();
@@ -355,15 +371,19 @@ async function saveCurrentDay(){
   delete dayData.dharmik;
   try{
     const res = await apiSaveDayWithApproval(d, dayData, computeDayScore(d), state.parentPinInput.trim());
-    if(res.error === 'parent_pin_mismatch'){
+    if(res.error === 'parent_pin_required'){
+      state.approveError = 'A parent/guardian PIN is required to approve and save this day.';
+    } else if(res.error === 'parent_pin_mismatch'){
       state.approveError = 'That parent/guardian PIN is incorrect. Ask your parent to try again.';
+    } else if(res.error === 'pin_mismatch_confirm'){
+      state.approveError = 'That PIN didn\u2019t match \u2014 leave it blank to save without confirming, or enter your own PIN.';
     } else if(res.error){
       state.saveMsg = 'Save failed: ' + res.error;
     } else {
       day.approved = true;
       day.approvedBy = res.approvedBy;
       day.approvedAt = res.approvedAt;
-      state.saveMsg = 'Saved & approved by ' + res.approvedBy;
+      state.saveMsg = 'Saved' + (res.approvedBy ? (' \u2014 ' + res.approvedBy) : '');
       state.parentPinInput = '';
     }
   } catch(e){
@@ -419,14 +439,25 @@ function renderCounterRow(item, day){
   ]);
 }
 
+function renderBrandHeader(subtitle){
+  const wrap = el('div', {class:'brandbar'}, [
+    el('div', {class:'brand-icon'}, '\ud83e\udeb7'),
+    el('div', {}, [
+      el('div', {class:'brand-org'}, 'JANEF'),
+      el('div', {class:'brand-sub'}, 'Jain Association of North East Florida')
+    ])
+  ]);
+  const outer = el('div');
+  outer.appendChild(wrap);
+  outer.appendChild(el('div', {class:'brand-title'}, 'Paryushan Mahaparv \u2014 Scorecard'));
+  if(subtitle) outer.appendChild(el('p', {class:'brand-subtitle'}, subtitle));
+  return outer;
+}
+
 function renderLogin(){
   ensureUserListLoaded();
   const wrap = el('div');
-  wrap.appendChild(el('header', {}, [
-    el('div', {class:'kicker'}, 'JANEF \u2022 Paryushan Mahaparv'),
-    el('h1', {}, 'Paryushan Scorecard'),
-    el('p', {}, '8 days of Tyag, Tap & Dharmik Kriyas \u2014 fill one day at a time')
-  ]));
+  wrap.appendChild(renderBrandHeader('8 days of Tyag, Tap & Dharmik Kriyas \u2014 fill one day at a time'));
   const card = el('div', {class:'card'});
   if(!backendConfigured()){
     card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL in config.js.'));
@@ -455,30 +486,53 @@ function renderLogin(){
 function renderRegister(){
   ensureUserListLoaded();
   const wrap = el('div');
-  wrap.appendChild(el('header', {}, [
-    el('div', {class:'kicker'}, 'JANEF \u2022 Paryushan Mahaparv'),
-    el('h1', {}, 'One-Time Registration'),
-    el('p', {}, 'Done once per child \u2014 after this, just log in with the name & PIN below')
-  ]));
+  wrap.appendChild(renderBrandHeader('One-time registration \u2014 done once, then just log in with your name & PIN'));
   const card = el('div', {class:'card'});
   if(!backendConfigured()){
     card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL in config.js.'));
   }
-  card.appendChild(el('p', {class:'hint'}, 'A parent or guardian should be present to set the approval PIN \u2014 it will be required to save every day\u2019s entry.'));
-  const nameInput = el('input', {type:'text', placeholder:"Child's full name"});
-  const pinInput = el('input', {type:'password', placeholder:'Child sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
+  const nameInput = el('input', {type:'text', placeholder:"Shravak / Shravika's full name"});
+  const ageInput = el('input', {type:'number', min:'1', max:'120', placeholder:'Age'});
+  const pinInput = el('input', {type:'password', placeholder:'Set a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
   const parentNameInput = el('input', {type:'text', placeholder:"Parent / guardian's name"});
-  const parentPinInput = el('input', {type:'password', placeholder:'Parent sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
-  card.appendChild(el('label',{class:'field'},"Child's Name"));
+  const parentPinInput = el('input', {type:'password', placeholder:'Parent/guardian sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
+
+  card.appendChild(el('label',{class:'field'},'Shravak / Shravika Name'));
   card.appendChild(nameInput);
-  card.appendChild(el('label',{class:'field'},"Child's PIN"));
+  card.appendChild(el('label',{class:'field'},'Age'));
+  card.appendChild(ageInput);
+  card.appendChild(el('label',{class:'field'},'PIN'));
   card.appendChild(pinInput);
-  card.appendChild(el('label',{class:'field'},'Parent / Guardian Name'));
-  card.appendChild(parentNameInput);
-  card.appendChild(el('label',{class:'field'},'Parent / Guardian PIN'));
-  card.appendChild(parentPinInput);
+
+  const parentSection = el('div');
+  const parentHint = el('p', {class:'hint'});
+  const parentNameLabel = el('label',{class:'field'},'Parent / Guardian Name');
+  const parentPinLabel = el('label',{class:'field'},'Parent / Guardian PIN');
+  parentSection.appendChild(parentHint);
+  parentSection.appendChild(parentNameLabel);
+  parentSection.appendChild(parentNameInput);
+  parentSection.appendChild(parentPinLabel);
+  parentSection.appendChild(parentPinInput);
+  card.appendChild(parentSection);
+
+  function refreshParentSection(){
+    const age = Number(ageInput.value);
+    const isMinor = ageInput.value !== '' && age < 18;
+    if(isMinor){
+      parentHint.textContent = 'Required for participants under 18 \u2014 a parent or guardian should be present to set this PIN. It will be needed to approve and save every day\u2019s entry.';
+      parentNameLabel.textContent = 'Parent / Guardian Name (required)';
+      parentPinLabel.textContent = 'Parent / Guardian PIN (required)';
+    } else {
+      parentHint.textContent = 'Optional for adults (18+). Leave blank if you\u2019ll approve your own entries \u2014 you can still choose to confirm with your own PIN, or skip confirmation, each day.';
+      parentNameLabel.textContent = 'Parent / Guardian Name (optional)';
+      parentPinLabel.textContent = 'Parent / Guardian PIN (optional)';
+    }
+  }
+  refreshParentSection();
+  ageInput.addEventListener('input', refreshParentSection);
+
   if(state.regError) card.appendChild(el('div', {class:'error'}, state.regError));
-  const regBtn = el('button', {onclick: ()=>completeRegistration(nameInput.value, pinInput.value, parentNameInput.value, parentPinInput.value)}, state.loading ? 'Registering\u2026' : 'Register & Continue');
+  const regBtn = el('button', {onclick: ()=>completeRegistration(nameInput.value, pinInput.value, ageInput.value, parentNameInput.value, parentPinInput.value)}, state.loading ? 'Registering\u2026' : 'Register & Continue');
   regBtn.disabled = state.loading;
   card.appendChild(regBtn);
   card.appendChild(el('button', {class:'secondary', style:'margin-top:8px;', onclick: ()=>{ state.screen='login'; state.loginError=''; render(); }}, 'Back to log in'));
@@ -489,10 +543,11 @@ function renderRegister(){
 
 function renderApp(){
   const wrap = el('div');
+  wrap.appendChild(renderBrandHeader());
   wrap.appendChild(el('div', {class:'hello'}, [
     el('div', {}, [
-      el('div', {class:'name'}, state.name),
-      el('div', {style:'font-size:12px;color:var(--ink-soft);'}, state.saving ? 'Saving\u2026' : (state.saveMsg || ('Supervised by ' + (state.parentName || 'parent/guardian'))))
+      el('div', {class:'name'}, state.name + (state.isMinor ? ' (Shravak/Shravika)' : '')),
+      el('div', {style:'font-size:12px;color:var(--ink-soft);'}, state.saving ? 'Saving\u2026' : (state.saveMsg || (state.isMinor ? ('Supervised by ' + (state.parentName || 'parent/guardian')) : 'Self-tracked')))
     ]),
     el('button', {onclick: logout}, 'Switch user')
   ]));
@@ -591,25 +646,39 @@ function renderApp(){
   ]));
 
   const approveCard = el('div', {class:'card'});
-  approveCard.appendChild(el('h2', {}, 'Parent / Guardian Approval'));
-  if(day.approved){
-    approveCard.appendChild(el('p', {class:'hint'}, 'Day ' + d + ' was already approved and saved by ' + (day.approvedBy || 'a parent/guardian') + '. Approving again will overwrite this day with the current entries.'));
+  approveCard.appendChild(el('h2', {}, state.isMinor ? 'Parent / Guardian Approval' : 'Save Entry'));
+  if(state.isMinor){
+    if(day.approved){
+      approveCard.appendChild(el('p', {class:'hint'}, 'Day ' + d + ' was already approved and saved by ' + (day.approvedBy || 'a parent/guardian') + '. Approving again will overwrite this day with the current entries.'));
+    } else {
+      approveCard.appendChild(el('p', {class:'hint'}, 'A parent or guardian must enter their PIN below to approve today\u2019s entry before it can be saved.'));
+    }
+    approveCard.appendChild(el('label',{class:'field'}, 'Parent / Guardian PIN (required)'));
   } else {
-    approveCard.appendChild(el('p', {class:'hint'}, 'A parent or guardian must enter their PIN below to approve today\u2019s entry before it can be saved.'));
+    if(day.approved){
+      approveCard.appendChild(el('p', {class:'hint'}, 'Day ' + d + ' was already saved' + (day.approvedBy && day.approvedBy !== state.name ? (' and confirmed by ' + day.approvedBy) : '') + '. Saving again will overwrite this day with the current entries.'));
+    } else {
+      approveCard.appendChild(el('p', {class:'hint'}, 'You can save directly, or optionally confirm with your own PIN' + (state.hasGuardianPin ? ' or a parent/guardian\u2019s PIN' : '') + '. Leave the field blank to save without confirming.'));
+    }
+    approveCard.appendChild(el('label',{class:'field'}, 'Confirm with PIN (optional)'));
   }
-  const parentPinField = el('input', {type:'password', placeholder: 'Parent/Guardian PIN', inputmode:'numeric', maxlength:'6'});
+  const parentPinField = el('input', {type:'password', placeholder: state.isMinor ? 'Parent/Guardian PIN' : 'Optional \u2014 leave blank to skip', inputmode:'numeric', maxlength:'6'});
   parentPinField.value = state.parentPinInput;
   parentPinField.addEventListener('input', (e)=>{ state.parentPinInput = e.target.value; });
-  approveCard.appendChild(el('label',{class:'field'}, 'Parent / Guardian PIN'));
   approveCard.appendChild(parentPinField);
   if(state.approveError) approveCard.appendChild(el('div', {class:'error'}, state.approveError));
   const savebar = el('div', {class:'savebar'});
-  savebar.appendChild(el('button', {onclick: saveCurrentDay}, state.saving ? 'Saving\u2026' : (day.approved ? 'Re-approve & Save Day ' + d : 'Approve & Save Day ' + d)));
+  const saveLabel = state.isMinor
+    ? (day.approved ? 'Re-approve & Save Day ' + d : 'Approve & Save Day ' + d)
+    : (day.approved ? 'Re-save Day ' + d : 'Save Day ' + d);
+  savebar.appendChild(el('button', {onclick: saveCurrentDay}, state.saving ? 'Saving\u2026' : saveLabel));
   if(d < DAYS){
-    savebar.appendChild(el('button', {class:'secondary', onclick: async ()=>{ await saveCurrentDay(); if(!state.approveError){ state.activeDay = d+1; } render(); }}, 'Approve, Save & Next \u2192'));
+    const nextLabel = state.isMinor ? 'Approve, Save & Next \u2192' : 'Save & Next \u2192';
+    savebar.appendChild(el('button', {class:'secondary', onclick: async ()=>{ await saveCurrentDay(); if(!state.approveError){ state.activeDay = d+1; } render(); }}, nextLabel));
   }
   approveCard.appendChild(savebar);
   wrap.appendChild(approveCard);
+
 
   const summaryCard = el('div', {class:'card'});
   summaryCard.appendChild(el('h2', {}, '8-Day Summary'));
