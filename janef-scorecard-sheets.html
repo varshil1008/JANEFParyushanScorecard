@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JANEF Paryushan Scorecard</title>
+<style>
+  :root{
+    --maroon:#7a2e2e;
+    --maroon-dark:#5c2222;
+    --gold:#c9973f;
+    --cream:#fdf8f0;
+    --card:#ffffff;
+    --ink:#2b2320;
+    --ink-soft:#6b5f56;
+    --line:#e7dccb;
+    --green:#3f7a4a;
+    --red:#a13d3d;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#fdf8f0,#f6ead6 40%,#fdf8f0);
+    color:var(--ink);
+    min-height:100vh;
+    padding:24px 14px 60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+  header{text-align:center;margin-bottom:22px;}
+  header .kicker{letter-spacing:.14em;text-transform:uppercase;font-size:11px;color:var(--gold);font-weight:700;}
+  header h1{font-size:24px;margin:6px 0 4px;color:var(--maroon-dark);font-weight:700;}
+  header p{margin:0;color:var(--ink-soft);font-size:13px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 2px 10px rgba(90,50,20,0.06);}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--maroon-dark);display:flex;align-items:center;gap:8px;}
+  .card h2 .badge{background:var(--gold);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+  label.field{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
+  input[type=text],input[type=password],input[type=number]{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px;background:#fffefb;color:var(--ink);margin-bottom:14px;
+  }
+  input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  button{width:100%;padding:13px;border:none;border-radius:10px;background:var(--maroon);color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;}
+  button:hover{background:var(--maroon-dark);}
+  button.secondary{background:transparent;color:var(--maroon);border:1px solid var(--maroon);}
+  button.secondary:hover{background:#f7ece2;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .error{color:var(--red);font-size:13px;margin:-6px 0 14px;}
+  .setupwarn{background:#fdeeee;border:1px solid #e6b8b8;color:var(--red);font-size:12px;border-radius:10px;padding:10px 12px;margin-bottom:16px;line-height:1.5;}
+  .hello{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .hello .name{font-weight:700;color:var(--maroon-dark);font-size:16px;}
+  .hello button{width:auto;padding:8px 14px;font-size:12px;background:transparent;color:var(--ink-soft);border:1px solid var(--line);}
+  .daynav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:18px;}
+  .daybtn{flex:0 0 auto;width:auto;padding:9px 14px;border-radius:20px;font-size:13px;font-weight:700;background:#f3e8d4;color:var(--maroon-dark);border:1px solid transparent;cursor:pointer;}
+  .daybtn.active{background:var(--maroon);color:#fff;}
+  .daybtn.done::after{content:" \25CF"; font-size:9px; opacity:.6;}
+  .daybtn.approved::after{content:" \2713";}
+  .item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .item:last-child{border-bottom:none;}
+  .item .txt{flex:1;}
+  .item .title{font-size:14px;font-weight:600;color:var(--ink);}
+  .item .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .item .pts{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap;}
+  .toggle{position:relative;width:44px;height:26px;flex:0 0 auto;margin-top:2px;}
+  .toggle input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;}
+  .toggle .track{position:absolute;inset:0;background:#e7dccb;border-radius:20px;transition:.15s;}
+  .toggle .thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .toggle input:checked + .track{background:var(--green);}
+  .toggle input:checked + .track + .thumb{left:21px;}
+  select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fffefb;color:var(--ink);margin-top:4px;}
+  .hint{font-size:12px;color:var(--ink-soft);background:#f7f0e2;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.5;}
+  .rownum{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
+  .rownum input[type=number]{width:70px;margin:0;text-align:center;}
+  .exempt{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+  .exempt input{width:auto;}
+  .counter{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+  .counter button{width:30px;height:30px;padding:0;border-radius:8px;font-size:16px;line-height:1;flex:0 0 auto;}
+  .counter .val{width:26px;text-align:center;font-weight:700;font-size:15px;}
+  .daytotal{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,var(--maroon),var(--maroon-dark));color:#fff;border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;}
+  .daytotal .label{font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.08em;}
+  .daytotal .num{font-size:26px;font-weight:800;}
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:6px;}
+  .summary-grid .cell{background:#f7f0e2;border-radius:10px;padding:8px 4px;text-align:center;}
+  .summary-grid .cell .d{font-size:11px;color:var(--ink-soft);}
+  .summary-grid .cell .v{font-size:15px;font-weight:700;color:var(--maroon-dark);}
+  .grandtotal{text-align:center;padding:20px;border-radius:var(--radius);background:var(--gold);color:#fff;margin-top:6px;}
+  .grandtotal .num{font-size:32px;font-weight:800;}
+  .footer-note{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:20px;line-height:1.5;}
+  .savebar{display:flex;gap:10px;margin-top:6px;}
+  .savebar button{font-size:13px;padding:11px;}
+  .disabled-note{font-size:11px;color:var(--red);margin-top:-4px;margin-bottom:10px;}
+  .capnote{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+/* =========================================================================
+   CONFIG — paste your deployed Apps Script Web App URL below (ends in /exec)
+   See AppsScript_Code.gs for the backend code + deployment steps.
+   ========================================================================= */
+const CONFIG = {
+  WEB_APP_URL: "https://script.google.com/macros/s/AKfycby3hM-b-MqlWlOeS7C5nl6bAokvw_ZSHhWZ7qE1EZQSOl2kIN-2mHOjyageJzqzCo8a/exec"
+};
+
+const DAYS = 8;
+
+const FOOD_TOGGLES = [
+  {key:'kandmul', title:'Kandmul & Abhakshya Tyag', sub:'No eggs (any form) and no root vegetables', pts:10},
+  {key:'navkarshi', title:'Navkarshi', sub:'Eating/drinking only after 48 minutes of sunrise', pts:10},
+  {key:'chovihar', title:'Chovihar', sub:'No food after sunset', pts:10},
+];
+const FASTING_OPTIONS = [
+  {key:'none', title:'None', pts:0},
+  {key:'biyaasna', title:'Biyaasna \u2014 2 meals, boiled water until sunset', pts:40},
+  {key:'ekasana', title:'Ekasana \u2014 1 meal, boiled water until sunset', pts:50},
+  {key:'upvas', title:'Upvas \u2014 no meal, only boiled water until sunset', pts:70},
+];
+// Repeatable Dharmik Kriyas. cap = max total points/day from this item (null = uncapped).
+const DHARMIK = [
+  {key:'pratikraman', title:'Pratikraman', sub:'48-minute activity asking forgiveness \u2014 can be done more than once', pts:50, cap:null},
+  {key:'samyik', title:'Samyik', sub:"Don't also count samayik vidhi for pratikraman \u2014 repeatable", pts:40, cap:null},
+  {key:'navkarmala', title:'Chanting of 108 Navkar mala', sub:'Navkar vali \u2014 repeatable', pts:10, cap:null},
+  {key:'satsang', title:'Jain Satsang / Story Book / Sutras', sub:'30 minutes each \u2014 repeatable', pts:20, cap:null},
+  {key:'meditation', title:'Meditation / Maun', sub:'30 min sessions \u2014 capped at 10 points/day total', pts:10, cap:10},
+  {key:'templechant', title:'Chanting Sutras at Temple during Pratikraman', sub:'Samuhik Pratikraman \u2014 capped at 20 points/day total', pts:20, cap:20},
+];
+const SAMVATSARI = {key:'samvatsari', title:'Samvatsari Pratikraman', sub:'Last day only \u2014 forgiveness for the whole year', pts:150};
+
+function emptyDay(){
+  const dharmik = {};
+  DHARMIK.forEach(item=>{ dharmik[item.key] = 0; });
+  return {kandmul:false,navkarshi:false,chovihar:false,fasting:'none',dharmik,samvatsari:false,tv:0,mobile:0,mobileExempt:false};
+}
+
+function loadState(){
+  return {
+    screen: 'login', // login | register | app
+    name: '', pin: '', parentName: '', loginError: '',
+    userList: [], userListLoaded: false, userListLoading: false,
+    regName: '', regParentName: '', regParentPin: '', regPin: '', regError: '',
+    activeDay: 1,
+    days: {},
+    parentPinInput: '', approveError: '',
+    loading:false, saving:false, saveMsg:''
+  };
+}
+let state = loadState();
+
+function getDay(d){
+  if(!state.days[d]) state.days[d]=emptyDay();
+  return state.days[d];
+}
+
+function dharmikPoints(item, day){
+  const count = Number(day.dharmik[item.key]) || 0;
+  const raw = count * item.pts;
+  return item.cap != null ? Math.min(raw, item.cap) : raw;
+}
+
+function computeDayScore(d){
+  const day = getDay(d);
+  let pts = 0;
+  if(day.fasting === 'none'){
+    if(day.kandmul) pts += 10;
+    if(day.navkarshi) pts += 10;
+    if(day.chovihar) pts += 10;
+  } else {
+    const fasting = FASTING_OPTIONS.find(f=>f.key===day.fasting) || FASTING_OPTIONS[0];
+    pts += fasting.pts;
+  }
+  DHARMIK.forEach(item=>{ pts += dharmikPoints(item, day); });
+  if(d === DAYS && day.samvatsari) pts += SAMVATSARI.pts;
+  const tvPenalty = Math.max(0, (Number(day.tv)||0) - 1) * 10;
+  const mobilePenalty = day.mobileExempt ? 0 : Math.max(0, (Number(day.mobile)||0) - 1) * 10;
+  pts -= (tvPenalty + mobilePenalty);
+  return pts;
+}
+function grandTotal(){
+  let t = 0;
+  for(let d=1; d<=DAYS; d++) t += computeDayScore(d);
+  return t;
+}
+function dayHasEntries(d){
+  const day = state.days[d];
+  if(!day) return false;
+  return day.kandmul||day.navkarshi||day.chovihar||day.fasting!=='none'||day.samvatsari||
+    Object.values(day.dharmik).some(v=>Number(v)>0)||Number(day.tv)>0||Number(day.mobile)>0;
+}
+
+function backendConfigured(){
+  return CONFIG.WEB_APP_URL && CONFIG.WEB_APP_URL.indexOf('PASTE_YOUR') === -1;
+}
+
+async function apiLoad(name, pin){
+  const url = CONFIG.WEB_APP_URL + '?action=load&name=' + encodeURIComponent(name) + '&pin=' + encodeURIComponent(pin);
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiSaveDay(day, dayData, dayTotal){
+  const res = await fetch(CONFIG.WEB_APP_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'}, // avoids CORS preflight on Apps Script
+    body: JSON.stringify({action:'save', name: state.name, pin: state.pin, day: day, dayData: dayData, dayTotal: dayTotal})
+  });
+  return res.json();
+}
+
+function rowFromSheet(raw){
+  const dharmik = {};
+  DHARMIK.forEach(item=>{ dharmik[item.key] = Number(raw[item.key]) || 0; });
+  return {
+    kandmul: !!raw.kandmul, navkarshi: !!raw.navkarshi, chovihar: !!raw.chovihar,
+    fasting: raw.fasting || 'none', dharmik, samvatsari: !!raw.samvatsari,
+    tv: Number(raw.tv)||0, mobile: Number(raw.mobile)||0, mobileExempt: !!raw.mobileExempt,
+    approved: !!raw.approved, approvedBy: raw.approvedBy || '', approvedAt: raw.approvedAt || ''
+  };
+}
+
+async function apiListUsers(){
+  const res = await fetch(CONFIG.WEB_APP_URL + '?action=list');
+  return res.json();
+}
+
+async function ensureUserListLoaded(){
+  if(state.userListLoaded || state.userListLoading || !backendConfigured()) return;
+  state.userListLoading = true;
+  try{
+    const result = await apiListUsers();
+    state.userList = result.names || [];
+    state.userListLoaded = true;
+  } catch(e){
+    // silently leave list empty; login/register still work by typing a name
+  }
+  state.userListLoading = false;
+  render();
+}
+
+async function apiRegister(name, pin, parentName, parentPin){
+  const res = await fetch(CONFIG.WEB_APP_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action:'register', name: name, pin: pin, parentName: parentName, parentPin: parentPin})
+  });
+  return res.json();
+}
+
+async function tryLogin(name, pin){
+  state.loginError = '';
+  if(!name.trim() || !pin.trim()){
+    state.loginError = 'Please select your name and enter your PIN.';
+    render(); return;
+  }
+  if(!backendConfigured()){
+    state.loginError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL near the top of this file.';
+    render(); return;
+  }
+  state.loading = true; render();
+  try{
+    const result = await apiLoad(name.trim(), pin.trim());
+    if(result.error === 'not_registered'){
+      state.loginError = 'That name isn\u2019t registered yet \u2014 use "First time? Register here" below.';
+      state.loading = false; render(); return;
+    }
+    if(result.error === 'pin_mismatch'){
+      state.loginError = 'Incorrect PIN for that name.';
+      state.loading = false; render(); return;
+    }
+    if(result.error){
+      state.loginError = 'Could not reach the sheet: ' + result.error;
+      state.loading = false; render(); return;
+    }
+    state.name = name.trim();
+    state.pin = pin.trim();
+    state.parentName = result.parentName || '';
+    state.days = {};
+    Object.keys(result.days || {}).forEach(d=>{ state.days[d] = rowFromSheet(result.days[d]); });
+    state.screen = 'app';
+    state.activeDay = 1;
+  } catch(e){
+    state.loginError = 'Network error reaching the Google Sheet backend.';
+  }
+  state.loading = false;
+  render();
+}
+
+async function completeRegistration(name, pin, parentName, parentPin){
+  state.regError = '';
+  if(!name.trim() || !pin.trim() || !parentName.trim() || !parentPin.trim()){
+    state.regError = 'Please fill in the child\u2019s name & PIN and the parent/guardian name & PIN.';
+    render(); return;
+  }
+  if(!backendConfigured()){
+    state.regError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL near the top of this file.';
+    render(); return;
+  }
+  if(state.userList.some(n => n.trim().toLowerCase() === name.trim().toLowerCase())){
+    state.regError = 'That name is already registered \u2014 go back and log in instead.';
+    render(); return;
+  }
+  state.loading = true; render();
+  try{
+    const result = await apiRegister(name.trim(), pin.trim(), parentName.trim(), parentPin.trim());
+    if(result.error){
+      state.regError = 'Could not register: ' + result.error;
+      state.loading = false; render(); return;
+    }
+    state.name = name.trim();
+    state.pin = pin.trim();
+    state.parentName = parentName.trim();
+    state.userList = [...state.userList, name.trim()];
+    state.days = {};
+    state.screen = 'app';
+    state.activeDay = 1;
+  } catch(e){
+    state.regError = 'Network error reaching the Google Sheet backend.';
+  }
+  state.loading = false;
+  render();
+}
+
+function logout(){ state = loadState(); render(); }
+
+async function apiSaveDayWithApproval(day, dayData, dayTotal, parentPin){
+  const res = await fetch(CONFIG.WEB_APP_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify({action:'save', name: state.name, pin: state.pin, parentPin: parentPin, day: day, dayData: dayData, dayTotal: dayTotal})
+  });
+  return res.json();
+}
+
+async function saveCurrentDay(){
+  const d = state.activeDay;
+  const day = getDay(d);
+  state.approveError = '';
+  if(!state.parentPinInput.trim()){
+    state.approveError = 'A parent/guardian PIN is needed to approve and save this day.';
+    render(); return;
+  }
+  state.saving = true; render();
+  const dharmikRaw = {};
+  DHARMIK.forEach(item=>{ dharmikRaw[item.key] = Number(day.dharmik[item.key])||0; });
+  const dayData = Object.assign({}, day, {dharmik: undefined}, dharmikRaw);
+  delete dayData.dharmik;
+  try{
+    const res = await apiSaveDayWithApproval(d, dayData, computeDayScore(d), state.parentPinInput.trim());
+    if(res.error === 'parent_pin_mismatch'){
+      state.approveError = 'That parent/guardian PIN is incorrect. Ask your parent to try again.';
+    } else if(res.error){
+      state.saveMsg = 'Save failed: ' + res.error;
+    } else {
+      day.approved = true;
+      day.approvedBy = res.approvedBy;
+      day.approvedAt = res.approvedAt;
+      state.saveMsg = 'Saved & approved by ' + res.approvedBy;
+      state.parentPinInput = '';
+    }
+  } catch(e){
+    state.saveMsg = 'Save failed \u2014 check your connection';
+  }
+  state.saving = false;
+  render();
+  setTimeout(()=>{ state.saveMsg=''; if(state.screen==='app') render(); }, 2200);
+}
+
+function el(tag, attrs={}, children=[]){
+  const e = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='class') e.className = v;
+    else if(k.startsWith('on')) e.addEventListener(k.substring(2), v);
+    else e.setAttribute(k, v);
+  });
+  (Array.isArray(children)?children:[children]).forEach(c=>{
+    if(c==null) return;
+    if(typeof c === 'string') e.appendChild(document.createTextNode(c));
+    else e.appendChild(c);
+  });
+  return e;
+}
+
+function renderToggleRow(title, sub, pts, checked, onChange, disabled){
+  const input = el('input', {type:'checkbox'});
+  input.checked = checked;
+  input.disabled = !!disabled;
+  input.addEventListener('change', onChange);
+  const sw = el('label', {class:'toggle'}, [input, el('span',{class:'track'}), el('span',{class:'thumb'})]);
+  return el('div', {class:'item'}, [
+    el('div', {class:'txt'}, [el('div', {class:'title'}, title), sub ? el('div', {class:'sub'}, sub) : null]),
+    el('div',{style:'display:flex;align-items:center;gap:10px;'}, [el('div',{class:'pts'}, '+' + pts), sw])
+  ]);
+}
+
+function renderCounterRow(item, day){
+  const count = Number(day.dharmik[item.key]) || 0;
+  const pts = dharmikPoints(item, day);
+  const capped = item.cap != null && (count*item.pts) > item.cap;
+  const minus = el('button', {onclick: ()=>{ day.dharmik[item.key] = Math.max(0,count-1); render(); }}, '\u2212');
+  const plus = el('button', {onclick: ()=>{ day.dharmik[item.key] = count+1; render(); }}, '+');
+  const counter = el('div', {class:'counter'}, [minus, el('div',{class:'val'}, String(count)), plus]);
+  const subChildren = [el('div', {class:'sub'}, item.sub)];
+  if(capped) subChildren.push(el('div', {class:'capnote'}, 'Capped \u2014 counting as +' + pts + ' today'));
+  return el('div', {class:'item'}, [
+    el('div', {class:'txt'}, [el('div', {class:'title'}, item.title), ...subChildren]),
+    el('div',{style:'display:flex;align-items:center;gap:12px;'}, [el('div',{class:'pts'}, '+' + pts), counter])
+  ]);
+}
+
+function renderLogin(){
+  ensureUserListLoaded();
+  const wrap = el('div');
+  wrap.appendChild(el('header', {}, [
+    el('div', {class:'kicker'}, 'JANEF \u2022 Paryushan Mahaparv'),
+    el('h1', {}, 'Paryushan Scorecard'),
+    el('p', {}, '8 days of Tyag, Tap & Dharmik Kriyas \u2014 fill one day at a time')
+  ]));
+  const card = el('div', {class:'card'});
+  if(!backendConfigured()){
+    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL near the top of this HTML file.'));
+  }
+  card.appendChild(el('h2', {}, 'Log in'));
+  card.appendChild(el('p', {class:'hint'}, 'Select your name from the list below, then enter your own PIN.'));
+  card.appendChild(el('label',{class:'field'},'Name'));
+  const select = el('select');
+  select.appendChild(el('option', {value:''}, state.userListLoading ? 'Loading names\u2026' : (state.userList.length ? 'Select your name' : 'No one registered yet')));
+  state.userList.forEach(n=>{ select.appendChild(el('option', {value:n}, n)); });
+  card.appendChild(select);
+  card.appendChild(el('label',{class:'field'},'PIN'));
+  const pinInput = el('input', {type:'password', placeholder:'4-digit PIN', inputmode:'numeric', maxlength:'6'});
+  card.appendChild(pinInput);
+  if(state.loginError) card.appendChild(el('div', {class:'error'}, state.loginError));
+  const btn = el('button', {onclick: ()=>tryLogin(select.value, pinInput.value)}, state.loading ? 'Connecting\u2026' : 'Continue');
+  btn.disabled = state.loading;
+  card.appendChild(btn);
+  pinInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryLogin(select.value, pinInput.value); });
+  card.appendChild(el('button', {class:'secondary', style:'margin-top:10px;', onclick: ()=>{ state.screen='register'; state.regError=''; render(); }}, 'First time? Register here'));
+  wrap.appendChild(card);
+  wrap.appendChild(el('p', {class:'footer-note'}, 'Since there\u2019s no password recovery, please remember your PIN \u2014 this is an honor-system tool for our community, not a secure login.'));
+  return wrap;
+}
+
+function renderRegister(){
+  ensureUserListLoaded();
+  const wrap = el('div');
+  wrap.appendChild(el('header', {}, [
+    el('div', {class:'kicker'}, 'JANEF \u2022 Paryushan Mahaparv'),
+    el('h1', {}, 'One-Time Registration'),
+    el('p', {}, 'Done once per child \u2014 after this, just log in with the name & PIN below')
+  ]));
+  const card = el('div', {class:'card'});
+  if(!backendConfigured()){
+    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL near the top of this HTML file.'));
+  }
+  card.appendChild(el('p', {class:'hint'}, 'A parent or guardian should be present to set the approval PIN \u2014 it will be required to save every day\u2019s entry.'));
+  const nameInput = el('input', {type:'text', placeholder:"Child's full name"});
+  const pinInput = el('input', {type:'password', placeholder:'Child sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
+  const parentNameInput = el('input', {type:'text', placeholder:"Parent / guardian's name"});
+  const parentPinInput = el('input', {type:'password', placeholder:'Parent sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
+  card.appendChild(el('label',{class:'field'},"Child's Name"));
+  card.appendChild(nameInput);
+  card.appendChild(el('label',{class:'field'},"Child's PIN"));
+  card.appendChild(pinInput);
+  card.appendChild(el('label',{class:'field'},'Parent / Guardian Name'));
+  card.appendChild(parentNameInput);
+  card.appendChild(el('label',{class:'field'},'Parent / Guardian PIN'));
+  card.appendChild(parentPinInput);
+  if(state.regError) card.appendChild(el('div', {class:'error'}, state.regError));
+  const regBtn = el('button', {onclick: ()=>completeRegistration(nameInput.value, pinInput.value, parentNameInput.value, parentPinInput.value)}, state.loading ? 'Registering\u2026' : 'Register & Continue');
+  regBtn.disabled = state.loading;
+  card.appendChild(regBtn);
+  card.appendChild(el('button', {class:'secondary', style:'margin-top:8px;', onclick: ()=>{ state.screen='login'; state.loginError=''; render(); }}, 'Back to log in'));
+  wrap.appendChild(card);
+  wrap.appendChild(el('p', {class:'footer-note'}, 'Already registered? Go back and pick your name from the dropdown instead \u2014 no need to register twice.'));
+  return wrap;
+}
+
+function renderApp(){
+  const wrap = el('div');
+  wrap.appendChild(el('div', {class:'hello'}, [
+    el('div', {}, [
+      el('div', {class:'name'}, state.name),
+      el('div', {style:'font-size:12px;color:var(--ink-soft);'}, state.saving ? 'Saving\u2026' : (state.saveMsg || ('Supervised by ' + (state.parentName || 'parent/guardian'))))
+    ]),
+    el('button', {onclick: logout}, 'Switch user')
+  ]));
+
+  const nav = el('div', {class:'daynav'});
+  for(let d=1; d<=DAYS; d++){
+    const dApproved = !!(state.days[d] && state.days[d].approved);
+    nav.appendChild(el('button', {class:'daybtn' + (d===state.activeDay?' active':'') + (dApproved?' approved':(dayHasEntries(d)?' done':'')),
+      onclick: ()=>{ state.activeDay = d; render(); }}, 'Day ' + d));
+  }
+  wrap.appendChild(nav);
+
+  const d = state.activeDay;
+  const day = getDay(d);
+
+  const foodCard = el('div', {class:'card'});
+  foodCard.appendChild(el('h2', {}, [document.createTextNode('Food Tyag & Tap '), el('span',{class:'badge'},'Day '+d)]));
+  foodCard.appendChild(el('p', {class:'hint'}, 'If you do Biyaasna, Ekasana or Upvas, the smaller items above are not counted separately \u2014 select your fasting level below and the individual toggles turn off automatically.'));
+  FOOD_TOGGLES.forEach(item=>{
+    foodCard.appendChild(renderToggleRow(item.title, item.sub, item.pts, day[item.key], ()=>{ day[item.key] = !day[item.key]; render(); }, day.fasting !== 'none'));
+  });
+  if(day.fasting !== 'none') foodCard.appendChild(el('div',{class:'disabled-note'},'Disabled while a fasting level is selected below.'));
+  foodCard.appendChild(el('label',{class:'field'}, 'Fasting level (overrides items above)'));
+  const select = el('select');
+  FASTING_OPTIONS.forEach(opt=>{
+    const o = el('option', {value: opt.key}, opt.title + (opt.pts? ' (+'+opt.pts+')':''));
+    if(opt.key === day.fasting) o.setAttribute('selected','selected');
+    select.appendChild(o);
+  });
+  select.addEventListener('change', (e)=>{
+    day.fasting = e.target.value;
+    if(day.fasting !== 'none'){ day.kandmul=false; day.navkarshi=false; day.chovihar=false; }
+    render();
+  });
+  foodCard.appendChild(select);
+  wrap.appendChild(foodCard);
+
+  const dharmikCard = el('div', {class:'card'});
+  dharmikCard.appendChild(el('h2', {}, 'Dharmik Kriyas'));
+  dharmikCard.appendChild(el('p', {class:'hint'}, 'Most items can be logged more than once a day \u2014 use the counter. Meditation and Temple Chanting are capped at their max points/day even if done more times.'));
+  DHARMIK.forEach(item=>{ dharmikCard.appendChild(renderCounterRow(item, day)); });
+  if(d === DAYS){
+    dharmikCard.appendChild(renderToggleRow(SAMVATSARI.title, SAMVATSARI.sub, SAMVATSARI.pts, day.samvatsari, ()=>{ day.samvatsari = !day.samvatsari; render(); }));
+  }
+  wrap.appendChild(dharmikCard);
+
+  const negCard = el('div', {class:'card'});
+  negCard.appendChild(el('h2', {}, 'Disconnect to Get Connected'));
+  negCard.appendChild(el('p', {class:'hint'}, 'First hour free each day. Every additional hour is \u221210 points.'));
+  const tvRow = el('div', {class:'rownum'});
+  tvRow.appendChild(el('label', {style:'flex:1;font-size:13px;font-weight:600;'}, 'TV / Movies / Videos / Games (hours)'));
+  const tvInput = el('input', {type:'number', min:'0', step:'0.5'});
+  tvInput.value = day.tv;
+  tvInput.addEventListener('input', (e)=>{ day.tv = e.target.value; render(); });
+  tvRow.appendChild(tvInput);
+  negCard.appendChild(tvRow);
+
+  const mobRow = el('div', {class:'rownum'});
+  mobRow.appendChild(el('label', {style:'flex:1;font-size:13px;font-weight:600;'}, 'Mobile / iPad / Computer (hours)'));
+  const mobInput = el('input', {type:'number', min:'0', step:'0.5'});
+  mobInput.value = day.mobile;
+  mobInput.addEventListener('input', (e)=>{ day.mobile = e.target.value; render(); });
+  mobRow.appendChild(mobInput);
+  const exemptLabel = el('label', {class:'exempt'});
+  const exemptInput = el('input', {type:'checkbox'});
+  exemptInput.checked = day.mobileExempt;
+  exemptInput.addEventListener('change', ()=>{ day.mobileExempt = !day.mobileExempt; render(); });
+  exemptLabel.appendChild(exemptInput);
+  exemptLabel.appendChild(document.createTextNode('For studies'));
+  mobRow.appendChild(exemptLabel);
+  negCard.appendChild(mobRow);
+  wrap.appendChild(negCard);
+
+  wrap.appendChild(el('div', {class:'daytotal'}, [
+    el('div', {}, el('div',{class:'label'},'Day ' + d + ' total')),
+    el('div', {class:'num'}, String(computeDayScore(d)))
+  ]));
+
+  const approveCard = el('div', {class:'card'});
+  approveCard.appendChild(el('h2', {}, 'Parent / Guardian Approval'));
+  if(day.approved){
+    approveCard.appendChild(el('p', {class:'hint'}, 'Day ' + d + ' was already approved and saved by ' + (day.approvedBy || 'a parent/guardian') + '. Approving again will overwrite this day with the current entries.'));
+  } else {
+    approveCard.appendChild(el('p', {class:'hint'}, 'A parent or guardian must enter their PIN below to approve today\u2019s entry before it can be saved.'));
+  }
+  const parentPinField = el('input', {type:'password', placeholder: 'Parent/Guardian PIN', inputmode:'numeric', maxlength:'6'});
+  parentPinField.value = state.parentPinInput;
+  parentPinField.addEventListener('input', (e)=>{ state.parentPinInput = e.target.value; });
+  approveCard.appendChild(el('label',{class:'field'}, 'Parent / Guardian PIN'));
+  approveCard.appendChild(parentPinField);
+  if(state.approveError) approveCard.appendChild(el('div', {class:'error'}, state.approveError));
+  const savebar = el('div', {class:'savebar'});
+  savebar.appendChild(el('button', {onclick: saveCurrentDay}, state.saving ? 'Saving\u2026' : (day.approved ? 'Re-approve & Save Day ' + d : 'Approve & Save Day ' + d)));
+  if(d < DAYS){
+    savebar.appendChild(el('button', {class:'secondary', onclick: async ()=>{ await saveCurrentDay(); if(!state.approveError){ state.activeDay = d+1; } render(); }}, 'Approve, Save & Next \u2192'));
+  }
+  approveCard.appendChild(savebar);
+  wrap.appendChild(approveCard);
+
+  const summaryCard = el('div', {class:'card'});
+  summaryCard.appendChild(el('h2', {}, '8-Day Summary'));
+  const grid = el('div', {class:'summary-grid'});
+  for(let dd=1; dd<=DAYS; dd++){
+    grid.appendChild(el('div', {class:'cell'}, [el('div', {class:'d'}, 'D'+dd), el('div', {class:'v'}, String(computeDayScore(dd)))]));
+  }
+  summaryCard.appendChild(grid);
+  summaryCard.appendChild(el('div', {class:'grandtotal'}, [
+    el('div', {style:'font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.08em;'}, 'Final Total'),
+    el('div', {class:'num'}, String(grandTotal()))
+  ]));
+  wrap.appendChild(summaryCard);
+
+  wrap.appendChild(el('p', {class:'footer-note'}, 'Jacksonville Navkarsi Time: 7:59 AM \u00b7 Sunset Time: 7:31 PM. Entries save to the shared JANEF Google Sheet \u2014 come back anytime to continue.'));
+
+  return wrap;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  if(state.screen === 'login') app.appendChild(renderLogin());
+  else if(state.screen === 'register') app.appendChild(renderRegister());
+  else app.appendChild(renderApp());
+}
+
+render();
+</script>
+</body>
+</html>
