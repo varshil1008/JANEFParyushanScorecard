@@ -90,19 +90,22 @@
   .savebar button{font-size:13px;padding:11px;}
   .disabled-note{font-size:11px;color:var(--red);margin-top:-4px;margin-bottom:10px;}
   .capnote{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  .daytitle{display:flex;justify-content:space-between;align-items:center;background:#f3e8d4;border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;margin-bottom:10px;}
+  .daytitle-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-soft);}
+  .daytitle-num{font-size:20px;font-weight:800;color:var(--maroon-dark);}
+  .daytitle-status{font-size:12px;font-weight:700;padding:5px 10px;border-radius:20px;white-space:nowrap;}
+  .daytitle-status.approved{background:#e4f0e6;color:var(--green);}
+  .daytitle-status.pending{background:#fbeee0;color:var(--gold);}
+  .prevnext{display:flex;gap:8px;margin-bottom:16px;}
+  .prevnext button{font-size:13px;padding:9px;}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
 
+<script src="config.js"></script>
 <script>
-/* =========================================================================
-   CONFIG — paste your deployed Apps Script Web App URL below (ends in /exec)
-   See AppsScript_Code.gs for the backend code + deployment steps.
-   ========================================================================= */
-const CONFIG = {
-  WEB_APP_URL: "https://script.google.com/macros/s/AKfycby3hM-b-MqlWlOeS7C5nl6bAokvw_ZSHhWZ7qE1EZQSOl2kIN-2mHOjyageJzqzCo8a/exec"
-};
+/* CONFIG (WEB_APP_URL) now lives in config.js, loaded above. */
 
 const DAYS = 8;
 
@@ -117,14 +120,13 @@ const FASTING_OPTIONS = [
   {key:'ekasana', title:'Ekasana \u2014 1 meal, boiled water until sunset', pts:50},
   {key:'upvas', title:'Upvas \u2014 no meal, only boiled water until sunset', pts:70},
 ];
-// Repeatable Dharmik Kriyas. cap = max total points/day from this item (null = uncapped).
 const DHARMIK = [
-  {key:'pratikraman', title:'Pratikraman', sub:'48-minute activity asking forgiveness \u2014 can be done more than once', pts:50, cap:null},
-  {key:'samyik', title:'Samyik', sub:"Don't also count samayik vidhi for pratikraman \u2014 repeatable", pts:40, cap:null},
-  {key:'navkarmala', title:'Chanting of 108 Navkar mala', sub:'Navkar vali \u2014 repeatable', pts:10, cap:null},
-  {key:'satsang', title:'Jain Satsang / Story Book / Sutras', sub:'30 minutes each \u2014 repeatable', pts:20, cap:null},
-  {key:'meditation', title:'Meditation / Maun', sub:'30 min sessions \u2014 capped at 10 points/day total', pts:10, cap:10},
-  {key:'templechant', title:'Chanting Sutras at Temple during Pratikraman', sub:'Samuhik Pratikraman \u2014 capped at 20 points/day total', pts:20, cap:20},
+  {key:'pratikraman', title:'Pratikraman', sub:'48-minute activity asking forgiveness \u2014 up to 2 times per day', pts:50, maxCount:2},
+  {key:'samyik', title:'Samyik', sub:"Don't also count samayik vidhi for pratikraman \u2014 repeatable", pts:40, maxCount:null},
+  {key:'navkarmala', title:'Chanting of 108 Navkar mala', sub:'Navkar vali \u2014 repeatable', pts:10, maxCount:null},
+  {key:'satsang', title:'Jain Satsang / Story Book / Sutras', sub:'30 minutes each \u2014 repeatable', pts:20, maxCount:null},
+  {key:'meditation', title:'Meditation / Maun', sub:'One 30-minute session counted per day (max 10 points)', pts:10, maxCount:1},
+  {key:'templechant', title:'Chanting Sutras at Temple during Pratikraman', sub:'Samuhik Pratikraman \u2014 one session counted per day (max 20 points)', pts:20, maxCount:1},
 ];
 const SAMVATSARI = {key:'samvatsari', title:'Samvatsari Pratikraman', sub:'Last day only \u2014 forgiveness for the whole year', pts:150};
 
@@ -154,9 +156,9 @@ function getDay(d){
 }
 
 function dharmikPoints(item, day){
-  const count = Number(day.dharmik[item.key]) || 0;
-  const raw = count * item.pts;
-  return item.cap != null ? Math.min(raw, item.cap) : raw;
+  const raw = Number(day.dharmik[item.key]) || 0;
+  const count = item.maxCount != null ? Math.min(raw, item.maxCount) : raw;
+  return count * item.pts;
 }
 
 function computeDayScore(d){
@@ -182,6 +184,13 @@ function grandTotal(){
   for(let d=1; d<=DAYS; d++) t += computeDayScore(d);
   return t;
 }
+function firstIncompleteDay(){
+  for(let d=1; d<=DAYS; d++){
+    if(!(state.days[d] && state.days[d].approved)) return d;
+  }
+  return DAYS;
+}
+
 function dayHasEntries(d){
   const day = state.days[d];
   if(!day) return false;
@@ -253,7 +262,7 @@ async function tryLogin(name, pin){
     render(); return;
   }
   if(!backendConfigured()){
-    state.loginError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL near the top of this file.';
+    state.loginError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL in config.js.';
     render(); return;
   }
   state.loading = true; render();
@@ -277,7 +286,7 @@ async function tryLogin(name, pin){
     state.days = {};
     Object.keys(result.days || {}).forEach(d=>{ state.days[d] = rowFromSheet(result.days[d]); });
     state.screen = 'app';
-    state.activeDay = 1;
+    state.activeDay = firstIncompleteDay();
   } catch(e){
     state.loginError = 'Network error reaching the Google Sheet backend.';
   }
@@ -292,7 +301,7 @@ async function completeRegistration(name, pin, parentName, parentPin){
     render(); return;
   }
   if(!backendConfigured()){
-    state.regError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL near the top of this file.';
+    state.regError = 'Backend not configured yet \u2014 paste your Apps Script Web App URL into CONFIG.WEB_APP_URL in config.js.';
     render(); return;
   }
   if(state.userList.some(n => n.trim().toLowerCase() === name.trim().toLowerCase())){
@@ -395,12 +404,15 @@ function renderToggleRow(title, sub, pts, checked, onChange, disabled){
 function renderCounterRow(item, day){
   const count = Number(day.dharmik[item.key]) || 0;
   const pts = dharmikPoints(item, day);
-  const capped = item.cap != null && (count*item.pts) > item.cap;
+  const atCap = item.maxCount != null && count >= item.maxCount;
+  const overCap = item.maxCount != null && count > item.maxCount;
   const minus = el('button', {onclick: ()=>{ day.dharmik[item.key] = Math.max(0,count-1); render(); }}, '\u2212');
-  const plus = el('button', {onclick: ()=>{ day.dharmik[item.key] = count+1; render(); }}, '+');
+  const plus = el('button', {onclick: ()=>{ if(!atCap){ day.dharmik[item.key] = count+1; render(); } }}, '+');
+  plus.disabled = atCap;
   const counter = el('div', {class:'counter'}, [minus, el('div',{class:'val'}, String(count)), plus]);
   const subChildren = [el('div', {class:'sub'}, item.sub)];
-  if(capped) subChildren.push(el('div', {class:'capnote'}, 'Capped \u2014 counting as +' + pts + ' today'));
+  if(overCap) subChildren.push(el('div', {class:'capnote'}, 'Capped \u2014 counting as +' + pts + ' today'));
+  else if(atCap && item.maxCount != null) subChildren.push(el('div', {class:'capnote'}, 'Max reached for today'));
   return el('div', {class:'item'}, [
     el('div', {class:'txt'}, [el('div', {class:'title'}, item.title), ...subChildren]),
     el('div',{style:'display:flex;align-items:center;gap:12px;'}, [el('div',{class:'pts'}, '+' + pts), counter])
@@ -417,7 +429,7 @@ function renderLogin(){
   ]));
   const card = el('div', {class:'card'});
   if(!backendConfigured()){
-    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL near the top of this HTML file.'));
+    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL in config.js.'));
   }
   card.appendChild(el('h2', {}, 'Log in'));
   card.appendChild(el('p', {class:'hint'}, 'Select your name from the list below, then enter your own PIN.'));
@@ -450,7 +462,7 @@ function renderRegister(){
   ]));
   const card = el('div', {class:'card'});
   if(!backendConfigured()){
-    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL near the top of this HTML file.'));
+    card.appendChild(el('div', {class:'setupwarn'}, 'Backend not connected yet. Deploy AppsScript_Code.gs as a Google Apps Script Web App, then paste the URL into CONFIG.WEB_APP_URL in config.js.'));
   }
   card.appendChild(el('p', {class:'hint'}, 'A parent or guardian should be present to set the approval PIN \u2014 it will be required to save every day\u2019s entry.'));
   const nameInput = el('input', {type:'text', placeholder:"Child's full name"});
@@ -495,6 +507,25 @@ function renderApp(){
 
   const d = state.activeDay;
   const day = getDay(d);
+  const isApprovedNow = !!day.approved;
+
+  wrap.appendChild(el('div', {class:'daytitle'}, [
+    el('div', {}, [
+      el('div', {class:'daytitle-label'}, 'Now filling'),
+      el('div', {class:'daytitle-num'}, 'Day ' + d + ' of ' + DAYS)
+    ]),
+    el('div', {class:'daytitle-status ' + (isApprovedNow?'approved':'pending')},
+      isApprovedNow ? ('\u2713 Approved' + (day.approvedBy ? ' by ' + day.approvedBy : '')) : 'Not yet submitted')
+  ]));
+
+  const prevnext = el('div', {class:'prevnext'});
+  const prevBtn = el('button', {class:'secondary', onclick: ()=>{ if(d>1){ state.activeDay=d-1; render(); } }}, '\u2190 Previous Day');
+  const nextBtn = el('button', {class:'secondary', onclick: ()=>{ if(d<DAYS){ state.activeDay=d+1; render(); } }}, 'Next Day \u2192');
+  if(d===1) prevBtn.disabled = true;
+  if(d===DAYS) nextBtn.disabled = true;
+  prevnext.appendChild(prevBtn);
+  prevnext.appendChild(nextBtn);
+  wrap.appendChild(prevnext);
 
   const foodCard = el('div', {class:'card'});
   foodCard.appendChild(el('h2', {}, [document.createTextNode('Food Tyag & Tap '), el('span',{class:'badge'},'Day '+d)]));
