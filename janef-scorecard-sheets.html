@@ -365,6 +365,10 @@ function isWeakPin(pin){
 
 async function completeRegistration(name, pin, age, parentName, parentPin){
   state.regError = '';
+  // Keep whatever was typed so a validation error doesn't wipe the form.
+  state.regName = name; state.regAge = age; state.regPin = pin;
+  state.regParentName = parentName; state.regParentPin = parentPin;
+
   const ageNum = Number(age);
   if(!name.trim() || !pin.trim() || !age || isNaN(ageNum) || ageNum <= 0){
     state.regError = 'Please fill in the Shravak/Shravika name, age, and PIN.';
@@ -372,6 +376,7 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
   }
   if(isWeakPin(pin)){
     state.regError = 'That PIN is too easy to guess (like 1234 or 0000) \u2014 please choose a harder one.';
+    state.regPin = ''; // only this field needs re-entering
     render(); return;
   }
   const isMinor = ageNum < 18;
@@ -381,6 +386,7 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
   }
   if(parentPin.trim() && isWeakPin(parentPin)){
     state.regError = 'The parent/guardian PIN is too easy to guess (like 1234 or 0000) \u2014 please choose a harder one.';
+    state.regParentPin = ''; // only this field needs re-entering
     render(); return;
   }
   if(!backendConfigured()){
@@ -406,6 +412,7 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
     state.userList = [...state.userList, name.trim()];
     state.days = {};
     rememberName(state.name);
+    state.regName=''; state.regAge=''; state.regPin=''; state.regParentName=''; state.regParentPin=''; // reset for next time
     state.screen = 'app';
     state.activeDay = 1;
   } catch(e){
@@ -584,6 +591,16 @@ function renderRegister(){
   const parentNameInput = el('input', {type:'text', placeholder:"Parent / guardian's name"});
   const parentPinInput = el('input', {type:'password', placeholder:'Parent/guardian sets a 4-digit PIN', inputmode:'numeric', maxlength:'6'});
 
+  nameInput.value = state.regName;
+  ageInput.value = state.regAge;
+  pinInput.value = state.regPin;
+  parentNameInput.value = state.regParentName;
+  parentPinInput.value = state.regParentPin;
+  nameInput.addEventListener('input', (e)=>{ state.regName = e.target.value; });
+  pinInput.addEventListener('input', (e)=>{ state.regPin = e.target.value; });
+  parentNameInput.addEventListener('input', (e)=>{ state.regParentName = e.target.value; });
+  parentPinInput.addEventListener('input', (e)=>{ state.regParentPin = e.target.value; });
+
   card.appendChild(el('label',{class:'field'},'Shravak / Shravika Name'));
   card.appendChild(nameInput);
   card.appendChild(el('label',{class:'field'},'Age'));
@@ -616,7 +633,7 @@ function renderRegister(){
     }
   }
   refreshParentSection();
-  ageInput.addEventListener('input', refreshParentSection);
+  ageInput.addEventListener('input', ()=>{ state.regAge = ageInput.value; refreshParentSection(); });
 
   if(state.regError) card.appendChild(el('div', {class:'error'}, state.regError));
   const regBtn = el('button', {onclick: ()=>completeRegistration(nameInput.value, pinInput.value, ageInput.value, parentNameInput.value, parentPinInput.value)}, state.loading ? 'Registering\u2026' : 'Register & Continue');
