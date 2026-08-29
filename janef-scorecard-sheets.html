@@ -104,6 +104,9 @@
   .daytitle-status.pending{background:#fbeee0;color:var(--gold);}
   .prevnext{display:flex;gap:8px;margin-bottom:16px;}
   .prevnext button{font-size:13px;padding:9px;}
+  .draftnote{font-size:11px;color:var(--ink-soft);text-align:center;margin:-4px 0 14px;}
+  .contact-note{color:var(--maroon-dark);font-weight:600;margin-top:6px;}
+  .credit-note{color:var(--ink-soft);font-weight:400;margin-top:2px;font-size:10px;}
 </style>
 </head>
 <body>
@@ -159,6 +162,50 @@ let state = loadState();
 function getDay(d){
   if(!state.days[d]) state.days[d]=emptyDay();
   return state.days[d];
+}
+
+/* ---- Remember last-used name on this device, for the login dropdown ---- */
+const LAST_USER_KEY = 'janef_last_user';
+function getRememberedName(){
+  try{ return localStorage.getItem(LAST_USER_KEY) || ''; } catch(e){ return ''; }
+}
+function rememberName(name){
+  try{ localStorage.setItem(LAST_USER_KEY, name); } catch(e){ /* ignore */ }
+}
+function orderedUserList(){
+  const remembered = getRememberedName();
+  if(remembered && state.userList.includes(remembered)){
+    return [remembered, ...state.userList.filter(n => n !== remembered)];
+  }
+  return state.userList; // already alphabetical from the backend
+}
+
+/* ---- Local draft autosave (this device only, before it reaches the Sheet) ---- */
+function draftKey(name, d){
+  return 'janef_draft_' + String(name).trim().toLowerCase().replace(/\s+/g,'_') + '_day' + d;
+}
+function saveDraft(d){
+  try{
+    const day = state.days[d];
+    if(!day || !state.name) return;
+    localStorage.setItem(draftKey(state.name, d), JSON.stringify(day));
+  } catch(e){ /* localStorage unavailable — silently skip, Sheet remains source of truth */ }
+}
+function loadDraftsIntoState(){
+  try{
+    for(let d=1; d<=DAYS; d++){
+      const raw = localStorage.getItem(draftKey(state.name, d));
+      if(!raw) continue;
+      const draft = JSON.parse(raw);
+      const existing = state.days[d];
+      if(!existing || !existing.approved){
+        state.days[d] = draft; // unsynced local draft takes priority over an unapproved/missing server day
+      }
+    }
+  } catch(e){ /* ignore */ }
+}
+function clearDraft(d){
+  try{ localStorage.removeItem(draftKey(state.name, d)); } catch(e){ /* ignore */ }
 }
 
 function dharmikPoints(item, day){
@@ -293,6 +340,8 @@ async function tryLogin(name, pin){
     state.hasGuardianPin = !!result.hasGuardianPin;
     state.days = {};
     Object.keys(result.days || {}).forEach(d=>{ state.days[d] = rowFromSheet(result.days[d]); });
+    loadDraftsIntoState();
+    rememberName(state.name);
     state.screen = 'app';
     state.activeDay = firstIncompleteDay();
   } catch(e){
@@ -302,6 +351,18 @@ async function tryLogin(name, pin){
   render();
 }
 
+function isWeakPin(pin){
+  const p = String(pin).trim();
+  if(!/^\d{4,6}$/.test(p)) return false; // non-numeric PINs aren't flagged by this check
+  if(/^(\d)\1{3,}$/.test(p)) return true; // 0000, 1111, 111111, etc.
+  const ascending = '0123456789';
+  const descending = '9876543210';
+  if(ascending.includes(p) || descending.includes(p)) return true; // 1234, 4321, 2345...
+  const common = new Set(['1234','4321','0000','1111','2222','3333','4444','5555','6666','7777','8888','9999','1212','1122','2580','0852','1000','2000']);
+  if(common.has(p)) return true;
+  return false;
+}
+
 async function completeRegistration(name, pin, age, parentName, parentPin){
   state.regError = '';
   const ageNum = Number(age);
@@ -309,9 +370,17 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
     state.regError = 'Please fill in the Shravak/Shravika name, age, and PIN.';
     render(); return;
   }
+  if(isWeakPin(pin)){
+    state.regError = 'That PIN is too easy to guess (like 1234 or 0000) \u2014 please choose a harder one.';
+    render(); return;
+  }
   const isMinor = ageNum < 18;
   if(isMinor && (!parentName.trim() || !parentPin.trim())){
     state.regError = 'A parent/guardian name and PIN are required for participants under 18.';
+    render(); return;
+  }
+  if(parentPin.trim() && isWeakPin(parentPin)){
+    state.regError = 'The parent/guardian PIN is too easy to guess (like 1234 or 0000) \u2014 please choose a harder one.';
     render(); return;
   }
   if(!backendConfigured()){
@@ -336,6 +405,7 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
     state.hasGuardianPin = !!parentPin.trim();
     state.userList = [...state.userList, name.trim()];
     state.days = {};
+    rememberName(state.name);
     state.screen = 'app';
     state.activeDay = 1;
   } catch(e){
@@ -345,7 +415,10 @@ async function completeRegistration(name, pin, age, parentName, parentPin){
   render();
 }
 
-function logout(){ state = loadState(); render(); }
+function logout(){
+  state = loadState();
+  render();
+}
 
 async function apiSaveDayWithApproval(day, dayData, dayTotal, parentPin){
   const res = await fetch(CONFIG.WEB_APP_URL, {
@@ -385,6 +458,7 @@ async function saveCurrentDay(){
       day.approvedAt = res.approvedAt;
       state.saveMsg = 'Saved' + (res.approvedBy ? (' \u2014 ' + res.approvedBy) : '');
       state.parentPinInput = '';
+      clearDraft(d); // synced to the Sheet — local draft no longer needed
     }
   } catch(e){
     state.saveMsg = 'Save failed \u2014 check your connection';
@@ -439,6 +513,13 @@ function renderCounterRow(item, day){
   ]);
 }
 
+function renderContactFooter(){
+  const wrap = el('div');
+  wrap.appendChild(el('p', {class:'footer-note contact-note'}, 'Questions? Reach out to Vinita Motiwala, Pathshala Director.'));
+  wrap.appendChild(el('p', {class:'footer-note credit-note'}, 'Created by Varshil Shah for JANEF.'));
+  return wrap;
+}
+
 function renderBrandHeader(subtitle){
   const wrap = el('div', {class:'brandbar'}, [
     el('div', {class:'brand-icon'}, '\ud83e\udeb7'),
@@ -466,8 +547,13 @@ function renderLogin(){
   card.appendChild(el('p', {class:'hint'}, 'Select your name from the list below, then enter your own PIN.'));
   card.appendChild(el('label',{class:'field'},'Name'));
   const select = el('select');
+  const remembered = getRememberedName();
   select.appendChild(el('option', {value:''}, state.userListLoading ? 'Loading names\u2026' : (state.userList.length ? 'Select your name' : 'No one registered yet')));
-  state.userList.forEach(n=>{ select.appendChild(el('option', {value:n}, n)); });
+  orderedUserList().forEach(n=>{
+    const opt = el('option', {value:n}, n === remembered ? (n + ' (last used)') : n);
+    if(n === remembered) opt.setAttribute('selected','selected');
+    select.appendChild(opt);
+  });
   card.appendChild(select);
   card.appendChild(el('label',{class:'field'},'PIN'));
   const pinInput = el('input', {type:'password', placeholder:'4-digit PIN', inputmode:'numeric', maxlength:'6'});
@@ -480,6 +566,7 @@ function renderLogin(){
   card.appendChild(el('button', {class:'secondary', style:'margin-top:10px;', onclick: ()=>{ state.screen='register'; state.regError=''; render(); }}, 'First time? Register here'));
   wrap.appendChild(card);
   wrap.appendChild(el('p', {class:'footer-note'}, 'Since there\u2019s no password recovery, please remember your PIN \u2014 this is an honor-system tool for our community, not a secure login.'));
+  wrap.appendChild(renderContactFooter());
   return wrap;
 }
 
@@ -538,6 +625,7 @@ function renderRegister(){
   card.appendChild(el('button', {class:'secondary', style:'margin-top:8px;', onclick: ()=>{ state.screen='login'; state.loginError=''; render(); }}, 'Back to log in'));
   wrap.appendChild(card);
   wrap.appendChild(el('p', {class:'footer-note'}, 'Already registered? Go back and pick your name from the dropdown instead \u2014 no need to register twice.'));
+  wrap.appendChild(renderContactFooter());
   return wrap;
 }
 
@@ -572,6 +660,7 @@ function renderApp(){
     el('div', {class:'daytitle-status ' + (isApprovedNow?'approved':'pending')},
       isApprovedNow ? ('\u2713 Approved' + (day.approvedBy ? ' by ' + day.approvedBy : '')) : 'Not yet submitted')
   ]));
+  if(!isApprovedNow) wrap.appendChild(el('p', {class:'draftnote'}, '\ud83d\udcbe Autosaving on this device as you type \u2014 not yet on the shared Sheet until saved below.'));
 
   const prevnext = el('div', {class:'prevnext'});
   const prevBtn = el('button', {class:'secondary', onclick: ()=>{ if(d>1){ state.activeDay=d-1; render(); } }}, '\u2190 Previous Day');
@@ -694,6 +783,7 @@ function renderApp(){
   wrap.appendChild(summaryCard);
 
   wrap.appendChild(el('p', {class:'footer-note'}, 'Jacksonville Navkarsi Time: 7:59 AM \u00b7 Sunset Time: 7:31 PM. Entries save to the shared JANEF Google Sheet \u2014 come back anytime to continue.'));
+  wrap.appendChild(renderContactFooter());
 
   return wrap;
 }
@@ -703,7 +793,10 @@ function render(){
   app.innerHTML = '';
   if(state.screen === 'login') app.appendChild(renderLogin());
   else if(state.screen === 'register') app.appendChild(renderRegister());
-  else app.appendChild(renderApp());
+  else {
+    app.appendChild(renderApp());
+    if(!getDay(state.activeDay).approved) saveDraft(state.activeDay); // autosave unapproved entries locally
+  }
 }
 
 render();
